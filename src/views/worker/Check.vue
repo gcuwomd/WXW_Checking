@@ -2,7 +2,6 @@
 import { ref, reactive, computed } from 'vue'
 import { Link } from '@element-plus/icons-vue'
 
-// 模拟后端下发的网站列表数据
 // status: 0 表示待检查，1 表示已反馈
 const websiteList = ref([
   { id: 1, name: '计算机学院官网', url: 'https://www.baidu.com', status: 0 },
@@ -61,7 +60,6 @@ const submitFeedback = () => {
   })
 }
 
-// 点击链接前往检查时，可以在这里做一些记录（可选）
 const handleVisit = (row) => {
   if (row.status === 0) {
     ElMessage.success(`正在前往检查：${row.name}`)
@@ -71,6 +69,14 @@ const handleVisit = (row) => {
 // 判断是否所有任务都已经完成
 const isAllCompleted = computed(() => {
   return websiteList.value.length > 0 && websiteList.value.every(item => item.status === 1)
+})
+
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(10)
+const pagedWebsiteList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return websiteList.value.slice(start, start + pageSize.value)
 })
 </script>
 
@@ -84,16 +90,16 @@ const isAllCompleted = computed(() => {
       </template>
       
       <!-- 网站列表数据表格 -->
-      <el-table v-if="!isAllCompleted" :data="websiteList" border style="width: 100%" stripe>
+      <el-table v-if="!isAllCompleted" :data="pagedWebsiteList" border style="width: 100%" stripe>
         <template #empty>
           <el-empty description="暂无待检查的网站任务" />
         </template>
         <el-table-column type="index" label="序号" width="70" align="center" />
         
-        <el-table-column prop="name" label="网站名称" width="200" />
+        <el-table-column prop="name" label="网站名称" min-width="150" show-overflow-tooltip />
         
         <!-- 核心：使用插槽将 url 渲染为超链接 -->
-        <el-table-column label="网站链接">
+        <el-table-column label="网站链接" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <!-- target="_blank" 表示在新标签页打开，不覆盖当前系统页面 -->
             <el-link type="primary" :href="row.url" target="_blank" :icon="Link" @click="handleVisit(row)">
@@ -103,7 +109,7 @@ const isAllCompleted = computed(() => {
         </el-table-column>
 
         <!-- 使用插槽将状态渲染为彩色标签 -->
-        <el-table-column label="检查状态" width="120" align="center">
+        <el-table-column label="检查状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 0 ? 'warning' : 'success'">
               {{ row.status === 0 ? '待检查' : '已完成' }}
@@ -112,7 +118,7 @@ const isAllCompleted = computed(() => {
         </el-table-column>
 
         <!-- 操作列 -->
-        <el-table-column label="操作" width="150" align="center">
+        <el-table-column label="操作" width="120" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" :disabled="row.status === 1" @click="handleFeedback(row)">
               提交反馈
@@ -120,6 +126,18 @@ const isAllCompleted = computed(() => {
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 分页组件 -->
+      <div v-if="!isAllCompleted" class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50]"
+          background
+          layout="total, sizes, prev, pager, next"
+          :total="websiteList.length"
+        />
+      </div>
 
       <!-- 全部完成时的恭喜状态 -->
       <el-result
@@ -134,7 +152,7 @@ const isAllCompleted = computed(() => {
     <el-dialog
       v-model="dialogVisible"
       :title="`提交反馈 - ${feedbackForm.websiteName}`"
-      width="500px"
+      width="min(500px, 90vw)"
     >
       <el-form :model="feedbackForm" :rules="rules" ref="feedbackFormRef" label-width="90px">
         <el-form-item label="检查结果" prop="result">
@@ -156,3 +174,12 @@ const isAllCompleted = computed(() => {
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  overflow-x: auto;
+}
+</style>

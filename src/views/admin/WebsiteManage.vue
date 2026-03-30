@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 
 // 模拟网站库数据
 const websiteList = ref([
@@ -74,6 +74,14 @@ const handleDelete = (row) => {
     ElMessage.info('已取消删除')
   })
 }
+
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(10)
+const pagedWebsiteList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return websiteList.value.slice(start, start + pageSize.value)
+})
 </script>
 
 <template>
@@ -86,31 +94,43 @@ const handleDelete = (row) => {
       </template>
       <el-button type="primary" @click="handleAdd" style="margin-bottom: 20px;">新增网站</el-button>
 
-      <el-table :data="websiteList" border style="width: 100%" stripe>
+      <el-table :data="pagedWebsiteList" border style="width: 100%" stripe>
         <template #empty>
           <el-empty description="暂无网站库数据" />
         </template>
-        <el-table-column type="index" label="序号" width="80" align="center" />
-        <el-table-column prop="name" label="网站名称" width="250" />
-        <el-table-column prop="url" label="网站链接" />
-        <el-table-column label="检查状态" width="120" align="center">
+        <el-table-column type="index" label="序号" width="70" align="center" />
+        <el-table-column prop="name" label="网站名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="url" label="网站链接" min-width="200" show-overflow-tooltip />
+        <el-table-column label="检查状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'">
               {{ row.status === 1 ? '启用中' : '已停用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" align="center">
+        <el-table-column label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 分页组件 -->
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50]"
+          background
+          layout="total, sizes, prev, pager, next"
+          :total="websiteList.length"
+        />
+      </div>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="min(500px, 90vw)">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
         <el-form-item label="网站名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入网站名称" />
@@ -137,3 +157,12 @@ const handleDelete = (row) => {
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  overflow-x: auto;
+}
+</style>

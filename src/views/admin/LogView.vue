@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 // 模拟检查日志数据
 const logList = ref([
@@ -26,6 +26,14 @@ const handleDetail = (row) => {
     confirmButtonText: '关闭'
   })
 }
+
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(10)
+const pagedLogList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return logList.value.slice(start, start + pageSize.value)
+})
 </script>
 
 <template>
@@ -46,27 +54,48 @@ const handleDetail = (row) => {
         </div>
       </template>
       
-      <el-table :data="logList" border style="width: 100%" stripe>
+      <el-table :data="pagedLogList" border style="width: 100%" stripe>
         <template #empty>
           <el-empty description="暂无干事检查日志" />
         </template>
-        <el-table-column type="index" label="序号" width="80" align="center" />
-        <el-table-column prop="workerName" label="检查干事" width="150" />
-        <el-table-column prop="websiteName" label="被查网站" width="220" />
-        <el-table-column label="检查结果" width="120" align="center">
+        <el-table-column type="index" label="序号" width="70" align="center" />
+        <el-table-column prop="workerName" label="检查干事" min-width="100" show-overflow-tooltip />
+        <el-table-column prop="websiteName" label="被查网站" min-width="150" show-overflow-tooltip />
+        <el-table-column label="检查结果" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.result === '正常' ? 'success' : 'danger'">
               {{ row.result }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="time" label="提交时间" width="200" align="center" />
-        <el-table-column label="操作" align="center">
+        <el-table-column prop="time" label="提交时间" min-width="160" align="center" />
+        <el-table-column label="操作" width="140" align="center" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" plain @click="handleDetail(row)">查看反馈描述</el-button>
           </template>
         </el-table-column>
       </el-table>
+      
+      <!-- 分页组件 -->
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50]"
+          background
+          layout="total, sizes, prev, pager, next"
+          :total="logList.length"
+        />
+      </div>
     </el-card>
   </div>
 </template>
+
+<style scoped>
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  overflow-x: auto;
+}
+</style>

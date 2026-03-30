@@ -88,7 +88,9 @@ const handleLogin = () => {
 }
 
 .login-box {
-  width: 420px;
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
   padding: 50px 40px;
   border-radius: 20px;
   /* 进阶版现代毛玻璃：带对角线微渐变背景 */
@@ -183,5 +185,17 @@ const handleLogin = () => {
 .login-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 18px rgba(64, 158, 255, 0.6);
+}
+
+/* 手机端适配 */
+@media (max-width: 768px) {
+  .login-box {
+    width: 90%;
+    padding: 40px 20px;
+  }
+  
+  .top-left-info {
+    display: none; /* 手机端隐藏左上角部门信息，避免空间拥挤重叠 */
+  }
 }
 </style>

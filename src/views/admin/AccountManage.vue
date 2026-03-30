@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 
 // 模拟干事账号数据
 const accountList = ref([
@@ -73,6 +73,14 @@ const handleDelete = (row) => {
     ElMessage.success('删除成功')
   }).catch(() => {})
 }
+
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(10)
+const pagedAccountList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return accountList.value.slice(start, start + pageSize.value)
+})
 </script>
 
 <template>
@@ -85,38 +93,50 @@ const handleDelete = (row) => {
       </template>
       <el-button type="primary" @click="handleAdd" style="margin-bottom: 20px;">新增账号</el-button>
 
-      <el-table :data="accountList" border style="width: 100%" stripe>
+      <el-table :data="pagedAccountList" border style="width: 100%" stripe>
         <template #empty>
           <el-empty description="暂无干事账号数据" />
         </template>
-        <el-table-column type="index" label="序号" width="80" align="center" />
-        <el-table-column prop="username" label="登录账号" width="180" />
-        <el-table-column prop="name" label="姓名" width="150" />
-        <el-table-column prop="role" label="角色" width="120" align="center">
+        <el-table-column type="index" label="序号" width="70" align="center" />
+        <el-table-column prop="username" label="登录账号" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="name" label="姓名" min-width="100" show-overflow-tooltip />
+        <el-table-column prop="role" label="角色" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.role === '管理员' ? 'warning' : ''">
               {{ row.role }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="账号状态" width="120" align="center">
+        <el-table-column label="账号状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '正常' : '已禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" align="center">
+        <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleEdit(row)">修改密码/编辑</el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)">删除账号</el-button>
           </template>
         </el-table-column>
       </el-table>
+      
+      <!-- 分页组件 -->
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50]"
+          background
+          layout="total, sizes, prev, pager, next"
+          :total="accountList.length"
+        />
+      </div>
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="min(500px, 90vw)">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
         <el-form-item label="登录账号" prop="username">
           <el-input v-model="form.username" placeholder="请输入登录账号" :disabled="form.id !== null" />
@@ -152,3 +172,12 @@ const handleDelete = (row) => {
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  overflow-x: auto;
+}
+</style>

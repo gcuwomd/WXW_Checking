@@ -1,7 +1,8 @@
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 // 引入 Element Plus 官方图标
-import { User, Document, Setting, ArrowDown, Warning } from '@element-plus/icons-vue'
+import { User, Document, Setting, ArrowDown, Warning, Fold } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -14,12 +15,33 @@ const handleLogout = (command) => {
     router.push('/')
   }
 }
+
+// 手机端响应式状态
+const isMobile = ref(false)
+const showMobileMenu = ref(false)
+
+const checkDevice = () => {
+  isMobile.value = window.innerWidth <= 768
+  if (!isMobile.value) showMobileMenu.value = false
+}
+
+onMounted(() => {
+  checkDevice()
+  window.addEventListener('resize', checkDevice)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkDevice)
+})
 </script>
 
 <template>
   <el-container class="layout-container">
+    <!-- 手机端遮罩层 -->
+    <div v-if="showMobileMenu && isMobile" class="mobile-overlay" @click="showMobileMenu = false"></div>
+
     <!-- 左侧 侧边栏菜单 -->
-    <el-aside width="220px" class="aside-menu">
+    <el-aside width="220px" :class="['aside-menu', { 'mobile-show': showMobileMenu }]">
       <div class="logo-container">
         <img src="/wxw.png" alt="Logo" class="sidebar-logo" />
         <span class="sidebar-title">管理员后台</span>
@@ -33,6 +55,7 @@ const handleLogout = (command) => {
         text-color="#bfcbd9"
         active-text-color="#409eff"
         router
+        @select="() => { if(isMobile) showMobileMenu = false }"
       >
         <el-menu-item index="/admin/account">
           <el-icon><User /></el-icon>
@@ -61,11 +84,14 @@ const handleLogout = (command) => {
       <!-- 顶部 导航条 -->
       <el-header class="header">
         <div class="header-left">
+          <el-icon class="menu-toggle" @click="showMobileMenu = !showMobileMenu">
+            <Fold />
+          </el-icon>
           <span class="page-title">网站运维部 - 网站检查系统</span>
         </div>
         
         <div class="header-right">
-          <el-dropdown @command="handleLogout">
+          <el-dropdown trigger="click" @command="handleLogout">
             <span class="user-info">
               <el-icon class="user-avatar"><User /></el-icon>
               你好, 管理员
@@ -95,6 +121,7 @@ const handleLogout = (command) => {
 .sidebar-logo { width: 32px; height: 32px; margin-right: 10px; }
 .sidebar-title { color: #ffffff; font-size: 18px; font-weight: 600; }
 .el-menu-vertical { border-right: none; flex: 1; }
+.header-left { display: flex; align-items: center; }
 .header { background-color: #ffffff; box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; z-index: 10; }
 .page-title { font-size: 18px; font-weight: 500; color: #333333; }
 .user-info { cursor: pointer; display: flex; align-items: center; font-size: 15px; color: #333333; outline: none; }
@@ -102,4 +129,31 @@ const handleLogout = (command) => {
   margin-right: 8px;
 }
 .main-content { background-color: #f0f2f5; padding: 20px; overflow-y: auto; }
+
+.menu-toggle { display: none; font-size: 22px; margin-right: 15px; cursor: pointer; color: #333333; }
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+}
+
+@media (max-width: 768px) {
+  .aside-menu {
+    position: fixed;
+    left: -220px;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    transition: left 0.3s ease;
+  }
+  .aside-menu.mobile-show { left: 0; }
+  .menu-toggle { display: block; }
+  .page-title { font-size: 16px; }
+  .user-info { font-size: 14px; }
+  .main-content { padding: 12px; }
+}
 </style>
