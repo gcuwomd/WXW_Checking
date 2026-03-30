@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user.js'
 // 引入 Element Plus 官方图标
-import { User, Document, Setting, ArrowDown, Warning, Fold } from '@element-plus/icons-vue'
+import { User, Document, Setting, ArrowDown, Warning, Fold, Bell } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -77,6 +77,13 @@ onUnmounted(() => {
             <Setting />
           </el-icon>
           <span>网站库管理</span>
+        </el-menu-item>
+
+        <el-menu-item index="/admin/settings">
+          <el-icon>
+            <Bell />
+          </el-icon>
+          <span>系统设置</span>
         </el-menu-item>
       </el-menu>
     </el-aside>

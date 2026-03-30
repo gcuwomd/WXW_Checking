@@ -57,6 +57,11 @@ const router = createRouter({
           path: 'websites',
           name: 'adminWebsites',
           component: () => import('../views/admin/WebsiteManage.vue')
+        },
+        {
+          path: 'settings',
+          name: 'adminSettings',
+          component: () => import('../views/admin/SystemSettings.vue')
         }
       ]
     }
