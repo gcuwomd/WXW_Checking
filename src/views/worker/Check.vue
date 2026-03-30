@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { Link } from '@element-plus/icons-vue'
 
 // 模拟后端下发的网站列表数据
@@ -67,6 +67,11 @@ const handleVisit = (row) => {
     ElMessage.success(`正在前往检查：${row.name}`)
   }
 }
+
+// 判断是否所有任务都已经完成
+const isAllCompleted = computed(() => {
+  return websiteList.value.length > 0 && websiteList.value.every(item => item.status === 1)
+})
 </script>
 
 <template>
@@ -79,7 +84,7 @@ const handleVisit = (row) => {
       </template>
       
       <!-- 网站列表数据表格 -->
-      <el-table :data="websiteList" border style="width: 100%" stripe>
+      <el-table v-if="!isAllCompleted" :data="websiteList" border style="width: 100%" stripe>
         <template #empty>
           <el-empty description="暂无待检查的网站任务" />
         </template>
@@ -115,6 +120,14 @@ const handleVisit = (row) => {
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 全部完成时的恭喜状态 -->
+      <el-result
+        v-else
+        icon="success"
+        title="恭喜你完成今日任务！"
+        sub-title="所有待检查的网站均已反馈完毕，辛苦了~"
+      />
     </el-card>
 
     <!-- 提交反馈的弹窗 (Dialog) -->
