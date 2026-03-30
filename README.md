@@ -1,44 +1,40 @@
-# wxw_checking
+# 网站运维部 - 网站检查系统 (wxw_checking)
 
-This template should help get you started developing with Vue 3 in Vite.
+本项目是一个基于 Vue 3 + Vite 构建的前端单页面应用（SPA）。系统主要分为“干事端”和“管理员端”，用于协助网站运维部进行日常的网站可用性检查、异常情况反馈以及人员与目标网站的管理。
 
-## Recommended IDE Setup
+## 🛠️ 技术栈
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **框架**: [Vue 3](https://cn.vuejs.org/) (Composition API & `<script setup>`)
+- **构建工具**: Vite
+- **UI 组件库**: Element Plus
+- **状态管理**: Pinia
+- **路由管理**: Vue Router 4
 
-## Recommended Browser Setup
+## ✨ 核心功能
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+### 👨‍💻 干事端 (Worker)
 
-## Customize configuration
+- **网站检查**: 获取分配的待查网站列表，一键跳转检查。
+- **异常反馈**: 提交检查结果，若有异常可填写详细问题描述。
+- **使用说明**: 查看系统操作指南。
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+### 🛡️ 管理员端 (Admin)
 
-## Project Setup
+- **账号管理**: 增删改查系统用户（干事/管理员），支持状态禁用/启用。
+- **网站库管理**: 管理需要检查的网站目标，控制是否将其纳入检查队列。
+- **日志管理**: 查阅干事提交的检查反馈日志以及系统后端接口调用报错日志。
+- **系统设置**: 配置系统全局参数（如：异常信息提醒实时推送）。
 
-```sh
-npm install
-```
+## 🚀 快速开始
 
-### Compile and Hot-Reload for Development
+### 环境推荐
 
-```sh
-npm run dev
-```
+VS Code + Vue (Official) 插件 (使用该插件时请禁用旧版 Vetur 插件)。
 
-### Compile and Minify for Production
+请确保你的环境中已安装了 Node.js。
 
-```sh
-npm run build
-```
+### 1.npm i
 
-### Lint with [ESLint](https://eslint.org/)
+### 2.npm run dev 运行
 
-```sh
-npm run lint
-```
+### 3.npm run build 打包
