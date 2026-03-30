@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user.js'
 // 引入 Element Plus 官方图标
 import { Document, Monitor, ArrowDown, User, Fold } from '@element-plus/icons-vue'
 
+const userStore = useUserStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -11,6 +13,7 @@ const route = useRoute()
 const handleLogout = (command) => {
   if (command === 'logout') {
     ElMessage.success('已安全退出系统')
+    userStore.clearUserInfo() // 清空用户信息
     // 跳转回登录页
     router.push('/')
   }
@@ -46,23 +49,20 @@ onUnmounted(() => {
         <img src="/wxw.png" alt="Logo" class="sidebar-logo" />
         <span class="sidebar-title">干事工作台</span>
       </div>
-      
+
       <!-- 侧边栏导航 : router="true" 表示开启路由跳转模式，index会被当做 path -->
-      <el-menu
-        :default-active="route.path"
-        class="el-menu-vertical"
-        background-color="#2c3e50"
-        text-color="#bfcbd9"
-        active-text-color="#409eff"
-        router
-        @select="() => { if(isMobile) showMobileMenu = false }"
-      >
+      <el-menu :default-active="route.path" class="el-menu-vertical" background-color="#2c3e50" text-color="#bfcbd9"
+        active-text-color="#409eff" router @select="() => { if (isMobile) showMobileMenu = false }">
         <el-menu-item index="/worker/check">
-          <el-icon><Monitor /></el-icon>
+          <el-icon>
+            <Monitor />
+          </el-icon>
           <span>网站检查</span>
         </el-menu-item>
         <el-menu-item index="/worker/instructions">
-          <el-icon><Document /></el-icon>
+          <el-icon>
+            <Document />
+          </el-icon>
           <span>使用说明</span>
         </el-menu-item>
       </el-menu>
@@ -78,13 +78,17 @@ onUnmounted(() => {
           </el-icon>
           <span class="page-title">网站运维部 - 网站检查系统</span>
         </div>
-        
+
         <div class="header-right">
           <el-dropdown trigger="click" @command="handleLogout">
             <span class="user-info">
-              <el-icon class="user-avatar"><User /></el-icon>
-              你好, 干事_测试账号
-              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              <el-icon class="user-avatar">
+                <User />
+              </el-icon>
+              你好, {{ userStore.userInfo.username || '用户' }}
+              <el-icon class="el-icon--right">
+                <ArrowDown />
+              </el-icon>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
@@ -178,7 +182,7 @@ onUnmounted(() => {
 .main-content {
   background-color: #f0f2f5;
   padding: 20px;
-  overflow-y: auto; 
+  overflow-y: auto;
 }
 
 .menu-toggle {
@@ -209,12 +213,25 @@ onUnmounted(() => {
     z-index: 100;
     transition: left 0.3s ease;
   }
+
   .aside-menu.mobile-show {
     left: 0;
   }
-  .menu-toggle { display: block; }
-  .page-title { font-size: 16px; }
-  .user-info { font-size: 14px; }
-  .main-content { padding: 12px; }
+
+  .menu-toggle {
+    display: block;
+  }
+
+  .page-title {
+    font-size: 16px;
+  }
+
+  .user-info {
+    font-size: 14px;
+  }
+
+  .main-content {
+    padding: 12px;
+  }
 }
 </style>

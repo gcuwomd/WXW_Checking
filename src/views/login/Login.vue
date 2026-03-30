@@ -1,9 +1,11 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user.js'
 
 const router = useRouter()
 const loginFormRef = ref(null)
+const userStore = useUserStore()
 
 // 表单绑定的数据对象
 const loginForm = reactive({
@@ -21,17 +23,19 @@ const rules = reactive({
 const handleLogin = () => {
   loginFormRef.value.validate((valid) => {
     if (valid) {
-      // TODO: 这里后续接入真实的后端登录接口
       console.log('当前输入的登录信息:', loginForm)
 
       ElMessage.success('登录成功！即将进入系统')
 
-      // 模拟权限判断：输入 admin 跳转到管理员端，否则跳转到干事端
+      const mockToken = 'mock_jwt_token_' + loginForm.username 
       if (loginForm.username === 'admin') {
+        userStore.setUserInfo({ username: '管理员', role: 'admin' })
         router.push('/admin')
       } else {
+        userStore.setUserInfo({ username: loginForm.username, role: 'worker' })
         router.push('/worker')
       }
+      userStore.setToken(mockToken)
     } else {
       console.log('表单格式校验不通过')
       return false
@@ -46,7 +50,7 @@ const handleLogin = () => {
     <div class="top-left-info">
       <img src="/wxw.png" alt="部门图标" class="logo-small" />
       <span>学生网络与信息工作委员会·网站运维部</span>
-    </div>  
+    </div>
 
     <div class="login-box">
       <div class="login-header">
@@ -60,7 +64,8 @@ const handleLogin = () => {
           <el-input v-model="loginForm.username" placeholder="请输入账号" clearable />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password @keyup.enter="handleLogin" />
+          <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password
+            @keyup.enter="handleLogin" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" class="login-btn" @click="handleLogin">登 录</el-button>
@@ -72,7 +77,6 @@ const handleLogin = () => {
 
 <style scoped>
 .login-container {
-  /* 使用 absolute 强行覆盖全屏，无视脚手架自带的 padding 和 margin */
   position: absolute;
   top: 0;
   left: 0;
@@ -117,7 +121,7 @@ const handleLogin = () => {
 }
 
 .title {
-  margin: 0;    
+  margin: 0;
   font-size: 26px;
   font-weight: 600;
   color: #222222;
@@ -193,9 +197,10 @@ const handleLogin = () => {
     width: 90%;
     padding: 40px 20px;
   }
-  
+
   .top-left-info {
-    display: none; /* 手机端隐藏左上角部门信息，避免空间拥挤重叠 */
+    display: none;
+    /* 手机端隐藏左上角部门信息，避免空间拥挤重叠 */
   }
 }
 </style>

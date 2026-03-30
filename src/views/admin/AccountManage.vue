@@ -71,7 +71,7 @@ const handleDelete = (row) => {
   }).then(() => {
     accountList.value = accountList.value.filter(item => item.id !== row.id)
     ElMessage.success('删除成功')
-  }).catch(() => {})
+  }).catch(() => { })
 }
 
 // 分页相关
@@ -114,24 +114,18 @@ const pagedAccountList = computed(() => {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column label="操作" width="140" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEdit(row)">修改密码/编辑</el-button>
-            <el-button type="danger" size="small" @click="handleDelete(row)">删除账号</el-button>
+            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-      
+
       <!-- 分页组件 -->
       <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50]"
-          background
-          layout="total, sizes, prev, pager, next"
-          :total="accountList.length"
-        />
+        <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 50]"
+          background layout="total, sizes, prev, pager, next" :total="accountList.length" />
       </div>
     </el-card>
 
@@ -154,13 +148,7 @@ const pagedAccountList = computed(() => {
           <el-input v-model="form.password" type="password" placeholder="不填则保留原密码" show-password />
         </el-form-item>
         <el-form-item label="账号状态">
-          <el-switch
-            v-model="form.status"
-            :active-value="1"
-            :inactive-value="0"
-            active-text="正常"
-            inactive-text="禁用"
-          />
+          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="正常" inactive-text="禁用" />
         </el-form-item>
       </el-form>
       <template #footer>
