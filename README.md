@@ -6,7 +6,7 @@
 
 - **框架**: [Vue 3](https://cn.vuejs.org/) (Composition API & `<script setup>`)
 - **构建工具**: Vite
-- **UI 组件库**: Element Plus
+- **UI 组件库**: Element Plus,ECharts
 - **状态管理**: Pinia
 - **路由管理**: Vue Router 4
 
@@ -33,7 +33,7 @@ VS Code + Vue (Official) 插件 (使用该插件时请禁用旧版 Vetur 插件)
 
 请确保你的环境中已安装了 Node.js。
 
-### 1.npm i
+### 1.npm i 下载配置
 
 ### 2.npm run dev 运行
 

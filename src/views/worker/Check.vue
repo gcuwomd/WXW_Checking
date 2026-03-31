@@ -17,13 +17,37 @@ const feedbackFormRef = ref(null)
 const feedbackForm = reactive({
   websiteId: null,
   websiteName: '',
-  result: '正常',
+  problemType: '正常',
   description: ''
 })
 
+// 检查结果选项
+const feedbackOptions = [
+  { value: '正常', label: '网站访问正常' },
+  { value: '404', label: '404 Not Found' },
+  { value: '400', label: '400 Bad Request' },
+  { value: '403', label: '403 Forbidden' },
+  { value: '402', label: '402 Payment Required' },
+  { value: '401', label: '401 Unauthorized' },
+  { value: '500', label: '500 Internal Server Error' },
+  { value: '其他', label: '其他' }
+]
+
 // 表单校验规则
 const rules = reactive({
-  result: [{ required: true, message: '请选择检查结果', trigger: 'change' }]
+  problemType: [{ required: true, message: '请选择检查结果', trigger: 'change' }],
+  description: [
+    {
+      validator: (rule, value, callback) => {
+        if (feedbackForm.problemType === '其他' && !value) {
+          callback(new Error('请填写其他问题描述'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
 })
 
 // 点击提交反馈按钮的事件
@@ -31,9 +55,8 @@ const handleFeedback = (row) => {
   // 初始化表单数据，将当前行的数据带入弹窗
   feedbackForm.websiteId = row.id
   feedbackForm.websiteName = row.name
-  feedbackForm.result = '正常'
+  feedbackForm.problemType = '正常'
   feedbackForm.description = ''
-  
   // 打开弹窗
   dialogVisible.value = true
 }
@@ -42,15 +65,20 @@ const handleFeedback = (row) => {
 const submitFeedback = () => {
   feedbackFormRef.value.validate((valid) => {
     if (valid) {
-      console.log('即将提交的反馈数据:', feedbackForm)
+      const feedbackContent =
+        feedbackForm.problemType === '其他' ? feedbackForm.description : feedbackForm.problemType
+
+      console.log('即将提交的反馈数据:', {
+        websiteId: feedbackForm.websiteId,
+        feedback: feedbackContent
+      })
       ElMessage.success('反馈提交成功！')
-      
       // 模拟前端状态更新：将对应的网站状态改为“已完成”
-      const site = websiteList.value.find(item => item.id === feedbackForm.websiteId)
+      const site = websiteList.value.find((item) => item.id === feedbackForm.websiteId)
       if (site) {
         site.status = 1
       }
-      
+
       // 关闭弹窗
       dialogVisible.value = false
     } else {
@@ -88,16 +116,16 @@ const pagedWebsiteList = computed(() => {
           <span>待检查网站列表</span>
         </div>
       </template>
-      
+
       <!-- 网站列表数据表格 -->
       <el-table v-if="!isAllCompleted" :data="pagedWebsiteList" border style="width: 100%" stripe>
         <template #empty>
           <el-empty description="暂无待检查的网站任务" />
         </template>
         <el-table-column type="index" label="序号" width="70" align="center" />
-        
+
         <el-table-column prop="name" label="网站名称" min-width="150" show-overflow-tooltip />
-        
+
         <!-- 核心：使用插槽将 url 渲染为超链接 -->
         <el-table-column label="网站链接" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
@@ -129,40 +157,24 @@ const pagedWebsiteList = computed(() => {
 
       <!-- 分页组件 -->
       <div v-if="!isAllCompleted" class="pagination-container">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50]"
-          background
-          layout="total, sizes, prev, pager, next"
-          :total="websiteList.length"
-        />
+        <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 50]"
+          background layout="total, sizes, prev, pager, next" :total="websiteList.length" />
       </div>
 
       <!-- 全部完成时的恭喜状态 -->
-      <el-result
-        v-else
-        icon="success"
-        title="恭喜你完成今日任务！"
-        sub-title="所有待检查的网站均已反馈完毕，辛苦了~"
-      />
+      <el-result v-else icon="success" title="恭喜你完成今日任务！" sub-title="所有待检查的网站均已反馈完毕，辛苦了~" />
     </el-card>
 
     <!-- 提交反馈的弹窗 (Dialog) -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="`提交反馈 - ${feedbackForm.websiteName}`"
-      width="min(500px, 90vw)"
-    >
+    <el-dialog v-model="dialogVisible" :title="`提交反馈 - ${feedbackForm.websiteName}`" width="min(500px, 90vw)">
       <el-form :model="feedbackForm" :rules="rules" ref="feedbackFormRef" label-width="90px">
-        <el-form-item label="检查结果" prop="result">
-          <el-radio-group v-model="feedbackForm.result">
-            <el-radio label="正常">网站访问正常</el-radio>
-            <el-radio label="异常">存在异常问题</el-radio>
-          </el-radio-group>
+        <el-form-item label="检查结果" prop="problemType">
+          <el-select v-model="feedbackForm.problemType" placeholder="请选择检查结果" style="width: 100%">
+            <el-option v-for="item in feedbackOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="问题描述" prop="description">
-          <el-input type="textarea" v-model="feedbackForm.description" rows="4" placeholder="如果存在异常，请详细描述发现的问题（如：页面乱码、链接失效等）..." />
+        <el-form-item v-if="feedbackForm.problemType === '其他'" label="问题描述" prop="description">
+          <el-input type="textarea" v-model="feedbackForm.description" rows="4" placeholder="请详细描述发现的问题..." />
         </el-form-item>
       </el-form>
       <template #footer>
