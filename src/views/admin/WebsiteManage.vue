@@ -188,19 +188,19 @@ const confirmDiffUpdate = () => {
   <div class="website-manage-container">
 
     <el-row :gutter="20" class="dashboard-section">
-      <el-col :span="8">
+      <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8">
         <el-card shadow="hover" class="kpi-card primary-bg">
           <div class="kpi-title">系统总收录网站数</div>
           <div class="kpi-value text-primary">{{ totalSitesCount }} <span class="unit">个</span></div>
         </el-card>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8">
         <el-card shadow="hover" class="kpi-card success-bg">
           <div class="kpi-title">本月新增收录</div>
           <div class="kpi-value text-success">+{{ newSitesThisMonth }} <span class="unit">个</span></div>
         </el-card>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
         <el-card shadow="hover" class="chart-card">
           <div class="chart-header">收录类别分布</div>
           <div ref="pieChartRef" class="chart-container"></div>
@@ -231,7 +231,7 @@ const confirmDiffUpdate = () => {
         <el-table-column prop="url" label="网站链接" min-width="200" show-overflow-tooltip />
         <el-table-column label="检查状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'">
+            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
               {{ row.status === 1 ? '启用中' : '已停用' }}
             </el-tag>
           </template>
@@ -429,6 +429,23 @@ const confirmDiffUpdate = () => {
 :deep(.el-table__body-wrapper::-webkit-scrollbar) {
   width: 6px;
   height: 6px;
+}
+
+/* 手机端适配 */
+@media (max-width: 768px) {
+  .dashboard-section .el-col {
+    margin-bottom: 20px;
+    /* 确保堆叠时有间距 */
+  }
+
+  .dashboard-section .el-col:last-child {
+    margin-bottom: 0;
+  }
+
+  /* 针对表格操作列，手机端取消固定，避免布局问题 */
+  :deep(.el-table-column--fixed-right) {
+    position: static !important;
+  }
 }
 
 :deep(.el-table__body-wrapper::-webkit-scrollbar-thumb) {

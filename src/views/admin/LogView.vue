@@ -64,8 +64,8 @@ let rankChartInstance = null
 const initPieChart = () => {
   pieChartInstance = markRaw(echarts.init(pieChartRef.value))
   pieChartInstance.setOption({
-    title: { text: '异常网站占比', left: 'center', textStyle: { fontSize: 15 } },
-    tooltip: { trigger: 'item' },
+    title: { text: '异常网站占比', left: 'center', textStyle: { fontSize: 14 } }, /* 默认略小 */
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' }, /* 添加百分比 */
     legend: { bottom: '0', left: 'center' },
     color: ['#67C23A', '#F56C6C'],
     series: [{
@@ -83,7 +83,7 @@ const initPieChart = () => {
 const initBarChart = () => {
   barChartInstance = markRaw(echarts.init(barChartRef.value))
   barChartInstance.setOption({
-    title: { text: '异常情况统计', left: 'center', textStyle: { fontSize: 15 } },
+    title: { text: '异常情况统计', left: 'center', textStyle: { fontSize: 14 } }, /* 默认略小 */
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: { type: 'value', boundaryGap: [0, 0.01] },
@@ -99,7 +99,7 @@ const initBarChart = () => {
 const initRankChart = () => {
   rankChartInstance = markRaw(echarts.init(rankChartRef.value))
   rankChartInstance.setOption({
-    title: { text: '干事检查量排行 (Top 5)', left: 'center', textStyle: { fontSize: 15 } },
+    title: { text: '干事检查量排行 (Top 5)', left: 'center', textStyle: { fontSize: 14 } }, /* 默认略小 */
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: { type: 'category', data: ['张三', '周八', '吴九', '郑十', '孙二'], axisTick: { alignWithLabel: true } },
@@ -144,15 +144,15 @@ const getTagType = (day) => {
   <div class="log-view-container">
 
     <el-row :gutter="20" class="dashboard-section">
-      <el-col :span="16">
+      <el-col :xs="24" :sm="16" :md="16" :lg="16" :xl="16">
         <el-row :gutter="20" class="kpi-row">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
             <el-card shadow="hover" class="kpi-card danger-bg">
               <div class="kpi-title">上一周期未检查人次</div>
               <div class="kpi-value text-danger">{{ missedCount }} <span class="unit">人次</span></div>
             </el-card>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
             <el-card shadow="hover" class="kpi-card primary-bg">
               <div class="kpi-title">上一周期总检查网站数</div>
               <div class="kpi-value text-primary">{{ totalCheckCount }} <span class="unit">个</span></div>
@@ -161,17 +161,17 @@ const getTagType = (day) => {
         </el-row>
 
         <el-row :gutter="20" class="chart-row">
-          <el-col :span="8">
+          <el-col :xs="24" :sm="8" :md="8" :lg="8" :xl="8">
             <el-card shadow="hover" class="chart-card">
               <div ref="pieChartRef" class="chart-container"></div>
             </el-card>
           </el-col>
-          <el-col :span="8">
+          <el-col :xs="24" :sm="8" :md="8" :lg="8" :xl="8">
             <el-card shadow="hover" class="chart-card">
               <div ref="barChartRef" class="chart-container"></div>
             </el-card>
           </el-col>
-          <el-col :span="8">
+          <el-col :xs="24" :sm="8" :md="8" :lg="8" :xl="8">
             <el-card shadow="hover" class="chart-card">
               <div ref="rankChartRef" class="chart-container"></div>
             </el-card>
@@ -179,7 +179,7 @@ const getTagType = (day) => {
         </el-row>
       </el-col>
 
-      <el-col :span="8">
+      <el-col :xs="24" :sm="8" :md="8" :lg="8" :xl="8">
         <el-card shadow="hover" class="right-card">
           <template #header>
             <div class="card-header">
@@ -187,7 +187,7 @@ const getTagType = (day) => {
               <el-tag type="danger" size="small" effect="plain" style="margin-left: 15px;">考核预警</el-tag>
             </div>
           </template>
-          <el-table :data="missingWorkers" style="width: 100%" height="340" stripe>
+          <el-table :data="missingWorkers" style="width: 100%" stripe>
             <el-table-column prop="name" label="姓名" width="80" />
             <el-table-column prop="group" label="小组" width="90" />
             <el-table-column label="缺查日期">
