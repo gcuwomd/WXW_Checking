@@ -1,267 +1,245 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, markRaw } from 'vue'
-import * as echarts from 'echarts'
+import { ref, reactive, onMounted } from 'vue'
+import request from '@/utils/request.js'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-// ==================== 原有逻辑：网站库基础数据与 CRUD ====================
-// 模拟网站库数据
-const websiteList = ref([
-  { id: 1, name: '学校官网', url: 'https://www.example.edu.cn', status: 1 },
-  { id: 2, name: '教务处', url: 'https://jwc.example.edu.cn', status: 1 },
-  { id: 3, name: '图书馆', url: 'https://lib.example.edu.cn', status: 0 },
-  { id: 4, name: '计算机学院', url: 'https://cs.example.edu.cn', status: 1 },
-])
+// 表格与加载状态
+const tableData = ref([])
+const total = ref(0)
+const loading = ref(false)
 
-// 弹窗相关状态
+// 分页与查询参数
+const queryParams = reactive({
+  page: 1,
+  limit: 10
+})
+
+// 弹窗状态
 const dialogVisible = ref(false)
-const dialogTitle = ref('')
 const formRef = ref(null)
-const form = reactive({ id: null, name: '', url: '', status: 1 })
+
+// 新增网站表单数据 (后端要求通过 Query 传递)
+const formData = reactive({
+  websiteName: '',
+  websiteUrl: '',
+  websiteEnable: 1 // 1为启用，0为禁用
+})
+
+// 表单验证规则
 const rules = reactive({
-  name: [{ required: true, message: '请输入网站名称', trigger: 'blur' }],
-  url: [{ required: true, message: '请输入网站链接', trigger: 'blur' }]
+  websiteName: [{ required: true, message: '请输入网站名称', trigger: 'blur' }],
+  websiteUrl: [
+    { required: true, message: '请输入网站地址', trigger: 'blur' },
+    { type: 'url', message: '请输入有效的URL地址 (例如: http://www.example.com)', trigger: 'blur' }
+  ],
+  websiteEnable: [{ required: true, message: '请选择启用状态', trigger: 'change' }]
 })
 
-// 新增网站
+// 获取列表数据与总数
+const getList = async () => {
+  loading.value = true
+  try {
+    // 1. 获取列表
+    const listRes = await request.get('/GET/website/list', { params: queryParams })
+
+    let currentTotal = 0
+
+    // 兼容不同的列表返回结构，并尝试从中直接提取 total（部分后端框架自带分页参数）
+    if (listRes && listRes.records) {
+      tableData.value = listRes.records
+      currentTotal = listRes.total || 0
+    } else if (listRes && listRes.list) {
+      tableData.value = listRes.list
+      currentTotal = listRes.total || 0
+    } else if (Array.isArray(listRes)) {
+      tableData.value = listRes
+    } else if (listRes && listRes.data && Array.isArray(listRes.data)) {
+      tableData.value = listRes.data
+      currentTotal = listRes.total || listRes.data.total || 0
+    } else {
+      tableData.value = []
+    }
+
+    // 2. 如果列表接口没带总数，调用独立的获取总数接口
+    if (!currentTotal) {
+      try {
+        const countRes = await request.get('/GET/website/count')
+        console.log('--- 诊断日志: 获取总数接口返回 ---', countRes)
+
+        // 极致兼容：数字、字符串、或者对象里的各种常见命名
+        if (typeof countRes === 'number' || typeof countRes === 'string') {
+          currentTotal = Number(countRes)
+        } else if (countRes) {
+          currentTotal = Number(countRes.count || countRes.total || countRes.data || 0)
+        }
+      } catch (countError) {
+        console.error('获取独立总数接口失败:', countError)
+      }
+    }
+
+    // 3. 最终赋值，如果所有途径都失败，才使用当前页数据长度作为兜底
+    total.value = currentTotal || tableData.value.length
+    console.log('--- 诊断日志: 最终应用的分页 Total ---', total.value)
+
+  } catch (error) {
+    console.error('获取网站列表失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 刷新
+const handleQuery = () => {
+  queryParams.page = 1
+  getList()
+}
+
+// 修改网站是否启用 (Switch 开关触发)
+const handleEnableChange = async (row) => {
+  try {
+    // 后端文档要求通过 Query 传参: websiteEnable, id
+    await request.put('/PUT/website/enable', null, {
+      params: {
+        id: row.id,
+        websiteEnable: row.websiteEnable
+      }
+    })
+    ElMessage.success(`网站 [${row.websiteName}] 状态更新成功`)
+  } catch (error) {
+    // 如果请求失败，把状态复原
+    row.websiteEnable = row.websiteEnable === 1 ? 0 : 1
+    console.error('修改状态失败:', error)
+  }
+}
+
+// 点击新增按钮
 const handleAdd = () => {
-  dialogTitle.value = '新增网站'
-  form.id = null
-  form.name = ''
-  form.url = ''
-  form.status = 1
+  Object.assign(formData, {
+    websiteName: '',
+    websiteUrl: '',
+    websiteEnable: 1
+  })
   dialogVisible.value = true
+  if (formRef.value) {
+    formRef.value.clearValidate()
+  }
 }
 
-// 编辑网站
-const handleEdit = (row) => {
-  dialogTitle.value = '编辑网站'
-  form.id = row.id
-  form.name = row.name
-  form.url = row.url
-  form.status = row.status
-  dialogVisible.value = true
-}
-
-// 提交表单
+// 提交新增表单
 const submitForm = () => {
-  formRef.value.validate((valid) => {
+  formRef.value.validate(async (valid) => {
     if (valid) {
-      if (form.id) {
-        const index = websiteList.value.findIndex(item => item.id === form.id)
-        if (index !== -1) { websiteList.value[index] = { ...websiteList.value[index], name: form.name, url: form.url, status: form.status } }
-        window.ElMessage.success('修改成功')
-      } else {
-        websiteList.value.push({ id: Date.now(), name: form.name, url: form.url, status: form.status })
-        window.ElMessage.success('新增成功')
+      try {
+        // 后端文档明确说明，这些参数位置在 query
+        await request.post('/POST/website/manual', null, { params: formData })
+        ElMessage.success('手动上传网站成功')
+        dialogVisible.value = false
+        getList()
+      } catch (error) {
+        console.error('新增网站失败:', error)
       }
-      dialogVisible.value = false
     }
   })
 }
 
-// 删除网站
+// 点击删除按钮
 const handleDelete = (row) => {
-  window.ElMessageBox.confirm(
-    `确定要从网站库中删除【${row.name}】吗？`,
-    '删除确认',
-    {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-    }
-  ).then(() => {
-    // 模拟删除：从列表中移除
-    websiteList.value = websiteList.value.filter(item => item.id !== row.id)
-    window.ElMessage.success('删除成功')
-  }).catch(() => {
-    window.ElMessage.info('已取消删除')
-  })
-}
+  ElMessageBox.confirm(`确认删除网站 "${row.websiteName}" 吗？此操作不可逆！`, '警告', {
+    confirmButtonText: '确定删除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      // DELETE 请求，参数位置在 query: id
+      await request.delete('/DELETE/website', { params: { id: row.id } })
+      ElMessage.success('删除成功')
 
-// 分页相关
-const currentPage = ref(1)
-const pageSize = ref(10)
-const pagedWebsiteList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return websiteList.value.slice(start, start + pageSize.value)
-})
-
-// ==================== 新增逻辑 1：顶部可视化大屏 ====================
-// KPI 数据计算
-const totalSitesCount = computed(() => websiteList.value.length)
-const newSitesThisMonth = ref(18) // 模拟当月新增收录数
-
-const pieChartRef = ref(null)
-let pieChartInstance = null
-
-const initPieChart = () => {
-  pieChartInstance = markRaw(echarts.init(pieChartRef.value))
-  pieChartInstance.setOption({
-    tooltip: { trigger: 'item' },
-    legend: { orient: 'vertical', right: '5%', top: 'center' },
-    color: ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C'],
-    series: [
-      {
-        name: '网站归属类别',
-        type: 'pie',
-        radius: ['50%', '80%'],
-        center: ['35%', '50%'],
-        avoidLabelOverlap: false,
-        label: { show: false, position: 'center' },
-        emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
-        labelLine: { show: false },
-        data: [
-          { value: 15, name: '职能部门' },
-          { value: 20, name: '各级学院' },
-          { value: 5, name: '教辅机构' },
-          { value: 2, name: '附属单位' }
-        ]
+      // 处理临界页码
+      if (tableData.value.length === 1 && queryParams.page > 1) {
+        queryParams.page--
       }
-    ]
-  })
+      getList()
+    } catch (error) {
+      console.error('删除失败:', error)
+    }
+  }).catch(() => { })
 }
 
-const handleResize = () => {
-  pieChartInstance?.resize()
+// 分页条数改变
+const handleSizeChange = (val) => {
+  queryParams.limit = val
+  queryParams.page = 1 // 改变每页条数时，主动重置回第一页，防止页码越界
+  getList()
+}
+
+// 当前页码改变
+const handleCurrentChange = (val) => {
+  queryParams.page = val
+  getList()
 }
 
 onMounted(() => {
-  setTimeout(() => {
-    initPieChart()
-  }, 0)
-  window.addEventListener('resize', handleResize)
+  getList()
 })
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  pieChartInstance?.dispose()
-})
-
-// ==================== 新增逻辑 2：网站库更新与 Diff 对比人工审核 ====================
-const diffDialogVisible = ref(false)
-
-// 模拟的更新差异数据
-const diffList = ref([])
-
-// 点击更新网站库，触发生成差异对比数据
-const handleUpdateLibrary = () => {
-  diffList.value = [
-    { id: 991, name: '外国语学院', type: 'add', oldUrl: '无', newUrl: 'https://fl.example.edu.cn' },
-    { id: 2, name: '教务处', type: 'update', oldUrl: 'https://jwc.example.edu.cn', newUrl: 'https://jwc.new-domain.edu.cn' },
-    { id: 3, name: '图书馆', type: 'delete', oldUrl: 'https://lib.example.edu.cn', newUrl: '已下线' }
-  ]
-  diffDialogVisible.value = true
-}
-
-// 根据变更类型返回 Tag 类型
-const getDiffTagType = (type) => {
-  const map = { 'add': 'success', 'update': 'warning', 'delete': 'danger' }
-  return map[type] || 'info'
-}
-
-// 根据变更类型返回中文描述
-const getDiffTagText = (type) => {
-  const map = { 'add': '新增网站', 'update': '信息变更', 'delete': '网站下线' }
-  return map[type] || '未知状态'
-}
-
-// 管理员确认无误，执行数据库同步更新
-const confirmDiffUpdate = () => {
-  // 模拟将 Diff 变更应用到真实的 websiteList 中
-  diffList.value.forEach(item => {
-    if (item.type === 'add') {
-      websiteList.value.unshift({ id: item.id, name: item.name, url: item.newUrl, status: 1 })
-    } else if (item.type === 'update') {
-      const idx = websiteList.value.findIndex(w => w.name === item.name)
-      if (idx !== -1) websiteList.value[idx].url = item.newUrl
-    } else if (item.type === 'delete') {
-      const idx = websiteList.value.findIndex(w => w.name === item.name)
-      if (idx !== -1) websiteList.value.splice(idx, 1)
-    }
-  })
-
-  window.ElMessage.success('人工审核完成，网站库数据库已成功同步更新！')
-  diffDialogVisible.value = false
-}
 </script>
 
 <template>
-  <div class="website-manage-container">
+  <div class="website-container">
+    <div class="header-actions">
+      <el-button type="primary" icon="Plus" @click="handleAdd">手动收录网站</el-button>
+      <el-button icon="Refresh" @click="handleQuery">刷新列表</el-button>
+    </div>
 
-    <el-row :gutter="20" class="dashboard-section">
-      <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8">
-        <el-card shadow="hover" class="kpi-card primary-bg">
-          <div class="kpi-title">系统总收录网站数</div>
-          <div class="kpi-value text-primary">{{ totalSitesCount }} <span class="unit">个</span></div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8">
-        <el-card shadow="hover" class="kpi-card success-bg">
-          <div class="kpi-title">本月新增收录</div>
-          <div class="kpi-value text-success">+{{ newSitesThisMonth }} <span class="unit">个</span></div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-        <el-card shadow="hover" class="chart-card">
-          <div class="chart-header">收录类别分布</div>
-          <div ref="pieChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <el-table :data="tableData" v-loading="loading" border stripe class="custom-table">
+      <el-table-column prop="id" label="ID" align="center" width="80" />
+      <el-table-column prop="websiteName" label="网站名称" align="center" min-width="150" />
 
-    <el-card shadow="never">
-      <template #header>
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <span>网站库数据详情</span>
-        </div>
-      </template>
-
-      <div class="toolbar" style="margin-bottom: 20px; display: flex; gap: 12px;">
-        <el-button type="primary" @click="handleAdd" :icon="'Plus'">手动新增网站</el-button>
-        <el-button type="success" plain @click="handleUpdateLibrary" :icon="'RefreshRight'">
-          一键检测更新网站库
-        </el-button>
-      </div>
-
-      <el-table :data="pagedWebsiteList" border style="width: 100%" stripe>
-        <template #empty>
-          <el-empty description="暂无网站库数据" />
+      <el-table-column prop="websiteUrl" label="网站地址" align="center" min-width="250" show-overflow-tooltip>
+        <template #default="scope">
+          <el-link type="primary" :href="scope.row.websiteUrl" target="_blank" :underline="false">
+            {{ scope.row.websiteUrl }}
+          </el-link>
         </template>
-        <el-table-column type="index" label="序号" width="70" align="center" />
-        <el-table-column prop="name" label="网站名称" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="url" label="网站链接" min-width="200" show-overflow-tooltip />
-        <el-table-column label="检查状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
-              {{ row.status === 1 ? '启用中' : '已停用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      </el-table-column>
 
-      <div class="pagination-container">
-        <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 50]"
-          background layout="total, sizes, prev, pager, next" :total="websiteList.length" />
-      </div>
-    </el-card>
+      <el-table-column prop="websiteEnable" label="启用状态" align="center" width="120">
+        <template #default="scope">
+          <el-switch v-model="scope.row.websiteEnable" :active-value="1" :inactive-value="0" active-text="启用"
+            inactive-text="停用" inline-prompt @change="handleEnableChange(scope.row)" />
+        </template>
+      </el-table-column>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="min(500px, 90vw)">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
-        <el-form-item label="网站名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入网站名称" />
+      <el-table-column label="操作" align="center" width="150">
+        <template #default="scope">
+          <el-button size="small" type="danger" link icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <div class="pagination-wrapper">
+      <el-pagination v-model:current-page="queryParams.page" v-model:page-size="queryParams.limit"
+        :page-sizes="[10, 20, 50]" background layout="total, sizes, prev, pager, next, jumper" :total="total"
+        @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+    </div>
+
+    <el-dialog title="手动上传网站" v-model="dialogVisible" width="500px" destroy-on-close>
+      <el-form ref="formRef" :model="formData" :rules="rules" label-width="90px" class="dialog-form">
+        <el-form-item label="网站名称" prop="websiteName">
+          <el-input v-model="formData.websiteName" placeholder="例如：计算机学院官网" />
         </el-form-item>
-        <el-form-item label="网站链接" prop="url">
-          <el-input v-model="form.url" placeholder="请输入完整链接，如 https://..." />
+
+        <el-form-item label="网站地址" prop="websiteUrl">
+          <el-input v-model="formData.websiteUrl" placeholder="需包含 http:// 或 https://" />
         </el-form-item>
-        <el-form-item label="启用检查">
-          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="停用" />
+
+        <el-form-item label="启用状态" prop="websiteEnable">
+          <el-radio-group v-model="formData.websiteEnable">
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">停用</el-radio>
+          </el-radio-group>
         </el-form-item>
       </el-form>
+
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取 消</el-button>
@@ -269,187 +247,42 @@ const confirmDiffUpdate = () => {
         </span>
       </template>
     </el-dialog>
-
-    <el-dialog v-model="diffDialogVisible" title="新版网站库数据比对确认 (人工审核环节)" width="75%" top="5vh">
-      <el-alert title="系统已检测到最新的来源数据，正在与当前数据库进行比对。请管理员仔细核对下列高亮的变更项，确认无误后点击下方按钮执行同步。" type="warning" show-icon
-        style="margin-bottom: 20px;" :closable="false" />
-
-      <el-table :data="diffList" border style="width: 100%" height="400">
-        <el-table-column prop="name" label="受影响网站名称" width="160" />
-
-        <el-table-column label="变更类型" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getDiffTagType(row.type)" effect="dark">
-              {{ getDiffTagText(row.type) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="数据详情对比 (URL与状态变更)">
-          <template #default="{ row }">
-            <div v-if="row.type === 'add'" class="diff-content diff-add">
-              <strong>[新增收录]</strong> 地址：<span class="text-success">{{ row.newUrl }}</span>
-            </div>
-
-            <div v-else-if="row.type === 'update'" class="diff-content diff-update">
-              <div style="margin-bottom: 5px;">
-                <span style="color: #909399;">原记录：</span>
-                <del>{{ row.oldUrl }}</del>
-              </div>
-              <div>
-                <span class="text-warning" style="font-weight: bold;">新记录：</span>
-                <span class="text-warning">{{ row.newUrl }}</span>
-              </div>
-            </div>
-
-            <div v-else-if="row.type === 'delete'" class="diff-content diff-delete">
-              <span style="color: #909399;">原记录将下线：</span>
-              <del class="text-danger">{{ row.oldUrl }}</del>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="diffDialogVisible = false">取消更新</el-button>
-          <el-button type="primary" @click="confirmDiffUpdate" :icon="'Check'">确认无误，同步至数据库</el-button>
-        </span>
-      </template>
-    </el-dialog>
-
   </div>
 </template>
 
 <style scoped>
-/* ==================== 顶部大屏样式 ==================== */
-.website-manage-container {
-  padding-bottom: 20px;
+.website-container {
+  padding: 24px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  min-height: calc(100vh - 120px);
 }
 
-.dashboard-section {
+.header-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
-/* 统一 KPI 和图表的高度为 140px，修复滚动条 bug */
-.kpi-card,
-.chart-card {
-  height: 140px;
-  border-radius: 12px;
-  border: none;
+.custom-table {
+  width: 100%;
+  border-radius: 8px;
   overflow: hidden;
 }
 
-.kpi-card :deep(.el-card__body) {
-  height: 100%;
-  box-sizing: border-box;
-  padding: 0 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.kpi-title {
-  font-size: 16px;
-  color: #606266;
-  margin-bottom: 15px;
-  font-weight: bold;
-}
-
-.kpi-value {
-  font-size: 38px;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.unit {
-  font-size: 16px;
-  font-weight: normal;
-}
-
-.text-primary {
-  color: #409EFF;
-}
-
-.text-success {
-  color: #67C23A;
-}
-
-.primary-bg {
-  background: linear-gradient(135deg, #fff 0%, #ecf5ff 100%);
-}
-
-.success-bg {
-  background: linear-gradient(135deg, #fff 0%, #f0f9eb 100%);
-}
-
-/* 图表内部样式 */
-.chart-card :deep(.el-card__body) {
-  height: 100%;
-  box-sizing: border-box;
-  padding: 10px 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-.chart-header {
-  font-size: 14px;
-  font-weight: bold;
-  color: #606266;
-  margin-bottom: 5px;
-}
-
-.chart-container {
-  flex: 1;
-  width: 100%;
-}
-
-/* ==================== Diff 对比弹窗内文字样式 ==================== */
-.diff-content {
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.text-danger {
-  color: #F56C6C;
-}
-
-.text-warning {
-  color: #E6A23C;
-}
-
-/* ==================== 表格通用样式 ==================== */
-.pagination-container {
-  margin-top: 20px;
+.pagination-wrapper {
+  margin-top: 24px;
   display: flex;
   justify-content: flex-end;
-  overflow-x: auto;
 }
 
-:deep(.el-table__body-wrapper::-webkit-scrollbar) {
-  width: 6px;
-  height: 6px;
+.dialog-form {
+  padding-right: 20px;
 }
 
-/* 手机端适配 */
-@media (max-width: 768px) {
-  .dashboard-section .el-col {
-    margin-bottom: 20px;
-    /* 确保堆叠时有间距 */
-  }
-
-  .dashboard-section .el-col:last-child {
-    margin-bottom: 0;
-  }
-
-  /* 针对表格操作列，手机端取消固定，避免布局问题 */
-  :deep(.el-table-column--fixed-right) {
-    position: static !important;
-  }
-}
-
-:deep(.el-table__body-wrapper::-webkit-scrollbar-thumb) {
-  background-color: #dcdfe6;
-  border-radius: 3px;
+:deep(.el-dialog) {
+  border-radius: 12px;
 }
 </style>

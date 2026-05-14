@@ -19,12 +19,24 @@ export default defineConfig({
     // 自动按需导入 Element Plus 组件
     Components({
       resolvers: [ElementPlusResolver()],
-      dts: false, 
+      dts: false,
     }),
   ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
+    }
+  },
+  // 新增开发服务器代理配置
+  server: {
+    proxy: {
+      // 捕获所有以 /api 开头的请求
+      '/api': {
+        target: 'http://114.132.92.175:1216', // 你的后端接口物理地址
+        changeOrigin: true, // 允许跨域
+        // 路径重写：把 '/api/login' 变成 '/login' 发给后端
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
     }
   }
 })

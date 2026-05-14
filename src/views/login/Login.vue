@@ -2,14 +2,16 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user.js'
+import request from '@/utils/request.js'
 
 const router = useRouter()
 const loginFormRef = ref(null)
 const userStore = useUserStore()
+const loading = ref(false)
 
 // 表单绑定的数据对象
 const loginForm = reactive({
-  username: '',
+  username: '', // 界面显示为账号/学号
   password: ''
 })
 
@@ -21,23 +23,57 @@ const rules = reactive({
 
 // 登录点击事件
 const handleLogin = () => {
-  loginFormRef.value.validate((valid) => {
+  loginFormRef.value.validate(async (valid) => {
     if (valid) {
-      console.log('当前输入的登录信息:', loginForm)
+      loading.value = true
+      try {
+        // 第一步：调用登录接口获取 Token
+        // 注意：这里根据后端需求将 username 作为 studentNum 传递
+        const loginRes = await request.get('/login', {
+          params: {
+            studentNum: loginForm.username,
+            password: loginForm.password
+          }
+        })
 
-      ElMessage.success('登录成功！即将进入系统')
+        // 提取 Token。根据通常习惯，loginRes 可能是 Token 字符串或包含 Token 的对象
+        const token = loginRes.token || loginRes.accessToken || (typeof loginRes === 'string' ? loginRes : '')
 
-      const mockToken = 'mock_jwt_token_' + loginForm.username 
-      if (loginForm.username === 'admin') {
-        userStore.setUserInfo({ username: '管理员', role: 'admin' })
-        router.push('/admin')
-      } else {
-        userStore.setUserInfo({ username: loginForm.username, role: 'worker' })
-        router.push('/worker')
+        if (!token) {
+          window.ElMessage.error('未获取到有效的登录凭证')
+          return
+        }
+
+        // 存入 Pinia，拦截器会自动将其放入后续请求的 Header 中
+        userStore.setToken(token)
+
+        // 第二步：获取用户详细个人信息
+        const profileRes = await request.get('/GET/users/profile')
+
+        // 第三步：精准匹配角色和姓名
+        // 根据你的反馈，管理员返回的是 "管理员"
+        const isAdmin = profileRes.role === '管理员'
+
+        // 更新全局用户信息状态
+        userStore.setUserInfo({
+          username: profileRes.studentName || '用户',
+          role: isAdmin ? 'admin' : 'worker'
+        })
+
+        window.ElMessage.success('登录成功！即将进入系统')
+
+        // 第四步：路由跳转
+        if (isAdmin) {
+          router.push('/admin')
+        } else {
+          router.push('/worker')
+        }
+      } catch (error) {
+        console.error('登录流程执行失败:', error)
+      } finally {
+        loading.value = false
       }
-      userStore.setToken(mockToken)
     } else {
-      console.log('表单格式校验不通过')
       return false
     }
   })
@@ -46,7 +82,6 @@ const handleLogin = () => {
 
 <template>
   <div class="login-container">
-    <!-- 左上角部门信息 -->
     <div class="top-left-info">
       <img src="/wxw.png" alt="部门图标" class="logo-small" />
       <span>学生网络与信息工作委员会·网站运维部</span>
@@ -58,17 +93,16 @@ const handleLogin = () => {
         <h2 class="title">网站检查系统</h2>
       </div>
 
-      <!-- 登录表单 -->
       <el-form :model="loginForm" ref="loginFormRef" :rules="rules" size="large">
         <el-form-item prop="username">
-          <el-input v-model="loginForm.username" placeholder="请输入账号" clearable />
+          <el-input v-model="loginForm.username" placeholder="请输入学号" clearable />
         </el-form-item>
         <el-form-item prop="password">
           <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password
             @keyup.enter="handleLogin" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" class="login-btn" @click="handleLogin">登 录</el-button>
+          <el-button type="primary" class="login-btn" @click="handleLogin" :loading="loading">登 录</el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -97,7 +131,6 @@ const handleLogin = () => {
   box-sizing: border-box;
   padding: 50px 40px;
   border-radius: 20px;
-  /* 进阶版现代毛玻璃：带对角线微渐变背景 */
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.02));
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
@@ -148,7 +181,6 @@ const handleLogin = () => {
   margin-right: 10px;
 }
 
-/* 深度覆写 Element Plus 默认样式，使其融入现代质感 */
 :deep(.el-input__wrapper) {
   background-color: rgba(255, 255, 255, 0.85);
   border-radius: 12px;
@@ -191,7 +223,6 @@ const handleLogin = () => {
   box-shadow: 0 6px 18px rgba(64, 158, 255, 0.6);
 }
 
-/* 手机端适配 */
 @media (max-width: 768px) {
   .login-box {
     width: 90%;
@@ -200,7 +231,6 @@ const handleLogin = () => {
 
   .top-left-info {
     display: none;
-    /* 手机端隐藏左上角部门信息，避免空间拥挤重叠 */
   }
 }
 </style>
