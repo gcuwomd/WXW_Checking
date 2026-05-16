@@ -15,28 +15,36 @@ const queryParams = reactive({
   statusCode: '全部'
 })
 
-// 获取 API 日志列表
+// 获取 API 日志列表 (复用极其健壮的分页逻辑)
 const getList = async () => {
   loading.value = true
   try {
     const res = await request.get('/GET/logs/api', { params: queryParams })
 
+    let currentTotal = 0
+
     // 兼容多种分页数据结构
     if (res && res.records) {
       tableData.value = res.records
-      total.value = res.total || 0
+      currentTotal = res.total || 0
     } else if (res && res.list) {
       tableData.value = res.list
-      total.value = res.total || 0
+      currentTotal = res.total || 0
     } else if (Array.isArray(res)) {
       tableData.value = res
-      total.value = res.length
     } else if (res && res.data && Array.isArray(res.data)) {
       tableData.value = res.data
-      total.value = res.total || res.data.length
+      currentTotal = res.total || res.data.total || 0
     } else {
       tableData.value = []
     }
+
+    // 严谨的数字提取
+    if (!currentTotal && res && res.total) {
+      currentTotal = Number(res.total)
+    }
+
+    total.value = currentTotal || tableData.value.length
   } catch (error) {
     console.error('获取API日志列表失败:', error)
   } finally {
@@ -79,6 +87,7 @@ const getStatusType = (code) => {
 // 分页条数改变
 const handleSizeChange = (val) => {
   queryParams.limit = val
+  queryParams.page = 1
   getList()
 }
 
@@ -127,46 +136,55 @@ onMounted(() => {
     </div>
 
     <el-table :data="tableData" v-loading="loading" border stripe class="custom-table">
+
+      <el-table-column type="expand">
+        <template #default="props">
+          <div class="expand-detail">
+            <p><strong>追踪id:</strong> <span>{{ props.row.traceId || '--' }}</span></p>
+            <p><strong>请求参数 (Params):</strong> <span class="code-font">{{ props.row.requestParams || '无' }}</span></p>
+            <p><strong>响应内容 (Body):</strong> <span class="code-font">{{ props.row.responseBody || '无' }}</span></p>
+            <p><strong>用户代理:</strong> <span>{{ props.row.userAgent || '--' }}</span></p>
+            <p v-if="props.row.exceptionMsg" class="error-msg">
+              <strong>异常信息:</strong> <span>{{ props.row.exceptionMsg }}</span>
+            </p>
+          </div>
+        </template>
+      </el-table-column>
+
       <el-table-column type="index" label="序号" width="60" align="center" />
 
-      <el-table-column prop="requestMethod" label="请求方法" align="center" width="120">
+      <el-table-column prop="requestMethod" label="请求方法" align="center" width="100">
         <template #default="scope">
-          <el-tag :type="getMethodType(scope.row.requestMethod || scope.row.method)" effect="dark" round>
-            {{ scope.row.requestMethod || scope.row.method || '未知' }}
+          <el-tag :type="getMethodType(scope.row.requestMethod)" effect="dark" round>
+            {{ scope.row.requestMethod || '未知' }}
           </el-tag>
         </template>
       </el-table-column>
 
       <el-table-column prop="requestUrl" label="请求路径" align="left" min-width="220" show-overflow-tooltip>
         <template #default="scope">
-          <span style="font-family: monospace;">{{ scope.row.requestUrl || scope.row.path || scope.row.url || '--'
-            }}</span>
+          <span style="font-family: monospace;">{{ scope.row.requestUrl || '--' }}</span>
         </template>
       </el-table-column>
 
       <el-table-column prop="statusCode" label="状态码" align="center" width="100">
         <template #default="scope">
-          <el-tag :type="getStatusType(scope.row.statusCode || scope.row.status)" effect="plain">
-            {{ scope.row.statusCode || scope.row.status || 'N/A' }}
+          <el-tag :type="getStatusType(scope.row.statusCode)" effect="plain">
+            {{ scope.row.statusCode || 'N/A' }}
           </el-tag>
         </template>
       </el-table-column>
 
-      <el-table-column prop="operator" label="操作人" align="center" width="150" show-overflow-tooltip>
+      <el-table-column prop="studentNum" label="操作人(学号)" align="center" width="140" show-overflow-tooltip>
         <template #default="scope">
-          {{ scope.row.operator || scope.row.studentNum || scope.row.username || '系统/匿名' }}
+          {{ scope.row.studentNum || '系统' }}
         </template>
       </el-table-column>
 
-      <el-table-column prop="ip" label="IP 地址" align="center" width="140" show-overflow-tooltip>
-        <template #default="scope">
-          {{ scope.row.ip || scope.row.clientIp || '--' }}
-        </template>
-      </el-table-column>
 
       <el-table-column prop="createTime" label="请求时间" align="center" width="160">
         <template #default="scope">
-          {{ scope.row.createTime || scope.row.requestTime || '--' }}
+          {{ scope.row.createTime ? scope.row.createTime.replace('T', ' ') : '--' }}
         </template>
       </el-table-column>
     </el-table>
@@ -211,5 +229,46 @@ onMounted(() => {
 :deep(.el-form-item) {
   margin-bottom: 0;
   margin-right: 20px;
+}
+
+/* 展开行内容样式 */
+.expand-detail {
+  padding: 15px 40px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  margin: 5px 20px;
+  border-left: 4px solid #409eff;
+}
+
+.expand-detail p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.5;
+}
+
+.expand-detail strong {
+  display: inline-block;
+  width: 140px;
+  color: #303133;
+}
+
+.code-font {
+  font-family: Consolas, Monaco, monospace;
+  background-color: #ebeef5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.error-msg {
+  color: #f56c6c !important;
+}
+
+/* 耗时超过1秒标红提醒 */
+.slow-request {
+  color: #f56c6c;
+  font-weight: bold;
 }
 </style>

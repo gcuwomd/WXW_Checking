@@ -21,28 +21,52 @@ const dialogVisible = ref(false)
 const uncheckList = ref([])
 const uncheckLoading = ref(false)
 
-// 获取日志列表
+// 格式化 ISO 时间为 "年月日 时分秒"
+const formatTime = (timeStr) => {
+  if (!timeStr) return '--'
+  const date = new Date(timeStr)
+  if (isNaN(date)) return timeStr.replace('T', ' ') // 兜底处理
+
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+
+  return `${y}年${m}月${d}日 ${hh}:${mm}:${ss}`
+}
+
+// 获取日志列表 (包含极致兼容的分页总数提取)
 const getList = async () => {
   loading.value = true
   try {
     const res = await request.get('/GET/logs/website/log', { params: queryParams })
 
+    let currentTotal = 0
+
     // 兼容后端不同命名习惯的分页返回结构
     if (res && res.records) {
       tableData.value = res.records
-      total.value = res.total || 0
+      currentTotal = res.total || 0
     } else if (res && res.list) {
       tableData.value = res.list
-      total.value = res.total || 0
+      currentTotal = res.total || 0
     } else if (Array.isArray(res)) {
       tableData.value = res
-      total.value = res.length
     } else if (res && res.data && Array.isArray(res.data)) {
       tableData.value = res.data
-      total.value = res.total || res.data.length
+      currentTotal = res.total || res.data.total || 0
     } else {
       tableData.value = []
     }
+
+    // 严谨的数字提取，防备 total 在外层的情况
+    if (!currentTotal && res && res.total) {
+      currentTotal = Number(res.total)
+    }
+
+    total.value = currentTotal || tableData.value.length
   } catch (error) {
     console.error('获取日志列表失败:', error)
   } finally {
@@ -70,7 +94,7 @@ const handleViewUncheck = async () => {
   uncheckList.value = []
   try {
     const res = await request.get('/GET/logs/website/uncheck')
-    // 判断返回的数据结构，一般是一个数组列表
+
     if (Array.isArray(res)) {
       uncheckList.value = res
     } else if (res && Array.isArray(res.data)) {
@@ -101,6 +125,7 @@ const getStatusType = (code) => {
 // 分页条数改变
 const handleSizeChange = (val) => {
   queryParams.limit = val
+  queryParams.page = 1
   getList()
 }
 
@@ -150,28 +175,45 @@ onMounted(() => {
     </div>
 
     <el-table :data="tableData" v-loading="loading" border stripe class="custom-table">
+
       <el-table-column type="index" label="序号" width="60" align="center" />
-      <el-table-column prop="websiteName" label="检查网站" align="center" min-width="150" show-overflow-tooltip />
-      <el-table-column prop="kinds" label="检查人 / 类别" align="center" width="140">
+
+      <el-table-column prop="websiteId" label="网站ID" align="center" width="100" />
+
+      <el-table-column prop="checkerId" label="检查人" align="center" width="140">
         <template #default="scope">
-          <el-tag :type="scope.row.kinds === '自动检查' ? 'info' : 'primary'" effect="plain">
-            {{ scope.row.kinds || scope.row.inspectorName || '未知' }}
+          <el-tag :type="scope.row.checkerId === 'Auto' ? 'info' : 'primary'" effect="plain">
+            {{ scope.row.checkerId === 'Auto' ? '自动检查' : scope.row.checkerId || '未知' }}
           </el-tag>
         </template>
       </el-table-column>
+
+      <el-table-column prop="checkRound" label="检查轮次" align="center" width="100">
+        <template #default="scope">
+          <el-tag type="warning" effect="light">第 {{ scope.row.checkRound || 1 }} 轮</el-tag>
+        </template>
+      </el-table-column>
+
       <el-table-column prop="statusCode" label="状态码" align="center" width="100">
         <template #default="scope">
-          <el-tag :type="getStatusType(scope.row.statusCode || scope.row.type)" effect="dark">
-            {{ scope.row.statusCode || scope.row.type || 'N/A' }}
+          <el-tag :type="getStatusType(scope.row.statusCode)" effect="dark">
+            {{ scope.row.statusCode || 'N/A' }}
           </el-tag>
         </template>
       </el-table-column>
+
       <el-table-column prop="remark" label="反馈备注" align="center" min-width="180" show-overflow-tooltip>
         <template #default="scope">
           <span>{{ scope.row.remark || '无' }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="检查时间" align="center" width="160" />
+
+      <el-table-column prop="createTime" label="检查时间" align="center" width="220">
+        <template #default="scope">
+          {{ formatTime(scope.row.createTime) }}
+        </template>
+      </el-table-column>
+
     </el-table>
 
     <div class="pagination-wrapper">
@@ -224,7 +266,6 @@ onMounted(() => {
 
 .action-btn {
   margin-bottom: 18px;
-  /* 对齐 form 的 margin */
 }
 
 .custom-table {

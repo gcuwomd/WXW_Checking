@@ -1,10 +1,10 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import request from '@/utils/request.js'
 import { ElMessage } from 'element-plus'
+import { Message, Warning, Monitor } from '@element-plus/icons-vue'
 
 // 初始化开关状态 (0: 关闭, 1: 开启)
-// 注意：后端文档中未提供获取当前系统设置状态的 GET 接口，此处默认初始值为 0。
 const userReminderStatus = ref(0)
 const adminReminderStatus = ref(0)
 const autoCheckEnable = ref(0)
@@ -13,6 +13,26 @@ const autoCheckEnable = ref(0)
 const loading1 = ref(false)
 const loading2 = ref(false)
 const loading3 = ref(false)
+
+// 获取当前系统所有配置状态
+const fetchConfigs = async () => {
+    try {
+        const res = await request.get('/GET/admin/configs/status')
+        if (res) {
+            // 精准映射后端返回的真实字段名
+            userReminderStatus.value = res.enableUserMessageReminder ?? 0
+            adminReminderStatus.value = res.enableAdminExceptionReminder ?? 0
+            autoCheckEnable.value = res.enableDynamicInspection ?? 0
+        }
+    } catch (error) {
+        console.error('从后端获取配置状态失败:', error)
+    }
+}
+
+// 页面挂载时自动调取配置状态
+onMounted(() => {
+    fetchConfigs()
+})
 
 // 1. 切换用户提醒检查推送
 const handleUserReminderChange = async (val) => {
@@ -68,70 +88,66 @@ const handleAutoCheckChange = async (val) => {
             <p class="subtitle">管理网站检查系统的自动化任务与消息推送开关</p>
         </div>
 
-        <el-row :gutter="24">
-            <el-col :xs="24" :sm="12" :md="8">
-                <el-card shadow="hover" class="setting-card">
-                    <template #header>
-                        <div class="card-header">
-                            <div class="header-title">
-                                <el-icon class="icon-blue">
-                                    <Message />
-                                </el-icon>
-                                <span>用户提醒检查推送</span>
-                            </div>
-                            <el-switch v-model="userReminderStatus" :active-value="1" :inactive-value="0"
-                                :loading="loading1" @change="handleUserReminderChange" />
-                        </div>
-                    </template>
-                    <div class="card-body">
-                        <p><strong>功能说明：</strong></p>
-                        <p>每周一、周三、周五定时为忘记检查网站的干事用户推送提醒工单或消息，督促其完成检查任务。</p>
-                    </div>
-                </el-card>
-            </el-col>
+        <div class="settings-list">
 
-            <el-col :xs="24" :sm="12" :md="8">
-                <el-card shadow="hover" class="setting-card">
-                    <template #header>
-                        <div class="card-header">
-                            <div class="header-title">
-                                <el-icon class="icon-danger">
-                                    <Warning />
-                                </el-icon>
-                                <span>管理员网站异常推送</span>
-                            </div>
-                            <el-switch v-model="adminReminderStatus" :active-value="1" :inactive-value="0"
-                                :loading="loading2" @change="handleAdminReminderChange" />
+            <el-card shadow="hover" class="setting-card">
+                <template #header>
+                    <div class="card-header">
+                        <div class="header-title">
+                            <el-icon class="icon-blue">
+                                <Message />
+                            </el-icon>
+                            <span>用户提醒检查推送</span>
                         </div>
-                    </template>
-                    <div class="card-body">
-                        <p><strong>功能说明：</strong></p>
-                        <p>每日将当天网站检查出现的异常状况（如404、500等错误）汇总推送给管理员，方便及时跟进处理。</p>
+                        <el-switch v-model="userReminderStatus" :active-value="1" :inactive-value="0"
+                            :loading="loading1" @change="handleUserReminderChange" />
                     </div>
-                </el-card>
-            </el-col>
+                </template>
+                <div class="card-body">
+                    <p><strong>功能说明：</strong></p>
+                    <p>每周一、周三、周五定时为忘记检查网站的干事用户推送提醒工单或消息，督促其完成检查任务。</p>
+                </div>
+            </el-card>
 
-            <el-col :xs="24" :sm="12" :md="8">
-                <el-card shadow="hover" class="setting-card">
-                    <template #header>
-                        <div class="card-header">
-                            <div class="header-title">
-                                <el-icon class="icon-success">
-                                    <Monitor />
-                                </el-icon>
-                                <span>系统自动检查</span>
-                            </div>
-                            <el-switch v-model="autoCheckEnable" :active-value="1" :inactive-value="0"
-                                :loading="loading3" @change="handleAutoCheckChange" />
+            <el-card shadow="hover" class="setting-card">
+                <template #header>
+                    <div class="card-header">
+                        <div class="header-title">
+                            <el-icon class="icon-danger">
+                                <Warning />
+                            </el-icon>
+                            <span>管理员网站异常推送</span>
                         </div>
-                    </template>
-                    <div class="card-body">
-                        <p><strong>功能说明：</strong></p>
-                        <p>开启后，系统后台将按照设定周期自动爬取或请求收录的学院官网，并自动更新网站状态库。</p>
+                        <el-switch v-model="adminReminderStatus" :active-value="1" :inactive-value="0"
+                            :loading="loading2" @change="handleAdminReminderChange" />
                     </div>
-                </el-card>
-            </el-col>
-        </el-row>
+                </template>
+                <div class="card-body">
+                    <p><strong>功能说明：</strong></p>
+                    <p>每日将当天网站检查出现的异常状况（如404、500等错误）汇总推送给管理员，方便及时跟进处理。</p>
+                </div>
+            </el-card>
+
+            <el-card shadow="hover" class="setting-card">
+                <template #header>
+                    <div class="card-header">
+                        <div class="header-title">
+                            <el-icon class="icon-success">
+                                <Monitor />
+                            </el-icon>
+                            <span>系统自动检查</span>
+                        </div>
+                        <el-switch v-model="autoCheckEnable" :active-value="1" :inactive-value="0" :loading="loading3"
+                            @change="handleAutoCheckChange" />
+                    </div>
+                </template>
+                <div class="card-body">
+                    <p><strong>功能说明：</strong></p>
+                    <p>开启后，系统后台将按照设定周期自动爬取或请求收录的学院官网，并自动更新网站状态库。</p>
+                </div>
+            </el-card>
+
+        </div>
     </div>
 </template>
 
@@ -162,15 +178,23 @@ const handleAutoCheckChange = async (val) => {
     font-size: 14px;
 }
 
+/* 纵向线性排列容器：限制宽度并保持平滑居中 */
+.settings-list {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
 .setting-card {
     border-radius: 10px;
-    margin-bottom: 20px;
     transition: all 0.3s;
 }
 
 .setting-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
 }
 
 .card-header {
@@ -188,8 +212,8 @@ const handleAutoCheckChange = async (val) => {
 }
 
 .header-title .el-icon {
-    margin-right: 8px;
-    font-size: 20px;
+    margin-right: 12px;
+    font-size: 22px;
 }
 
 .icon-blue {
@@ -208,9 +232,10 @@ const handleAutoCheckChange = async (val) => {
     font-size: 14px;
     color: #606266;
     line-height: 1.6;
+    padding: 5px 10px;
 }
 
 .card-body p {
-    margin: 5px 0;
+    margin: 6px 0;
 }
 </style>
